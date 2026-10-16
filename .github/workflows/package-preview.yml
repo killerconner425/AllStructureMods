@@ -1,0 +1,35 @@
+name: Package Thun integration TEST mod
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tools/package_preview.py'
+      - '.github/workflows/package-preview.yml'
+permissions:
+  contents: read
+jobs:
+  test-jar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install nbtlib==2.0.4
+      - name: Fetch upstream pinned archive
+        run: |
+          python - <<'PY'
+          import urllib.request,json,hashlib,pathlib
+          v=json.load(urllib.request.urlopen('https://api.modrinth.com/v2/version/23Gin9af'))
+          assert v['project_id']=='ZLL4Dkxb'
+          f=next((x for x in v['files'] if x.get('primary')),v['files'][0])
+          b=urllib.request.urlopen(f['url']).read()
+          assert hashlib.sha512(b).hexdigest()==f['hashes']['sha512']
+          pathlib.Path('source.zip').write_bytes(b)
+          PY
+      - run: python tools/customize_loot.py source.zip dist/thuns-with-custom-loot.zip
+      - run: python tools/package_preview.py dist/thuns-with-custom-loot.zip dist/AllStructureMods-0.1.0-Thuns-TEST-26.4-snapshot-4.jar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AllStructureMods-Thuns-UNTESTED-preview
+          path: dist/AllStructureMods-0.1.0-Thuns-TEST-26.4-snapshot-4.jar

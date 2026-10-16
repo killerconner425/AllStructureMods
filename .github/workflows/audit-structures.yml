@@ -1,0 +1,25 @@
+name: Audit upstream structures
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tools/audit_upstream.py'
+      - '.github/workflows/audit-structures.yml'
+permissions:
+  contents: read
+jobs:
+  audit-thuns:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python tools/audit_upstream.py
+        env:
+          UPSTREAM_PROJECT: ZLL4Dkxb
+          UPSTREAM_GAME_VERSION: '26.3'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: thuns-structures-upstream-audit
+          path: audit-output/

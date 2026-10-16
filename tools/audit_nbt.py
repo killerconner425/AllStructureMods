@@ -2,7 +2,7 @@
 """Audit original source NBT palettes and container loot pointers.
 This script DOES NOT alter original structures or world generation.
 """
-import io, os, pathlib, json, urllib.request, hashlib, zipfile, collections
+import io, os, pathlib, json, urllib.request, hashlib, zipfile, collections, gzip
 import nbtlib
 OUT=pathlib.Path("audit-output");OUT.mkdir(exist_ok=True)
 PROJECT="ZLL4Dkxb"; V_ID="23Gin9af"
@@ -17,7 +17,10 @@ archive=zipfile.ZipFile(io.BytesIO(blob))
 results=[]; errors=[]
 for name in sorted(x for x in archive.namelist() if x.endswith(".nbt") and "/structure/" in x):
   try:
-    root=nbtlib.File.parse(io.BytesIO(archive.read(name)))
+    raw_nbt=archive.read(name)
+    if raw_nbt.startswith(b"\\x1f\\x8b"):
+      raw_nbt=gzip.decompress(raw_nbt)
+    root=nbtlib.File.parse(io.BytesIO(raw_nbt))
     palette=root.get("palette",[])
     blocks=[str(p.get("Name","")) for p in palette]
     nonvanilla=sorted(set(b for b in blocks if not b.startswith("minecraft:")))

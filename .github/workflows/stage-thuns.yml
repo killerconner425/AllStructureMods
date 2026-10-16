@@ -1,0 +1,23 @@
+name: Inspect and stage first structure pack
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tools/stage_thuns.py'
+      - '.github/workflows/stage-thuns.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python tools/stage_thuns.py
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: upstream-structure-inventory
+          path: dist/integration-audit.json

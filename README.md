@@ -24,3 +24,7 @@ A planned Fabric 26.4 Snapshot 4 mega-collection of **licensed, vanilla-block st
 6. Package as Fabric mod built against actual 26.4 Snapshot 4 and test generation, loot, and startup.
 
 This is a work-in-progress integration project, not a released mod.
+
+## Current integration checkpoint (2026-10-16)
+A GitHub Actions job named **Inspect and stage first structure pack** now fetches the real upstream Thun's Structures 26.3 datapack, checks its MIT project license and official SHA-512 release hash, then emits an archive-inventory artifact as `integration-audit.json`. It intentionally does **not** publish a playable JAR: snapshot conversion, original license-text inclusion, NBT palette auditing, and per-structure loot rewiring remain unverified. See `tools/stage_thuns.py`.
+If the job succeeds, the audit artifact must be inspected before any redistribution or claims of compatibility. If it fails, inspect the job's error and correct the source resolver. Avoid enabling PUBLISH_UNVERIFIED.

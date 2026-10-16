@@ -11,33 +11,80 @@ with zipfile.ZipFile(source) as z:
  files={n:z.read(n) for n in z.namelist() if not n.endswith("/")}
 assert files and any("/worldgen/" in n for n in files)
 # Distinct per-structure loot; independent across differing mods/namespaces.
-common=["bread","iron_ingot","gold_ingot","emerald","lapis_lazuli","coal","arrow","leather","torch",
-        "cooked_beef","amethyst_shard","string","bone","paper","redstone","compass","map","diamond"]
-gear=["iron_sword","iron_axe","iron_pickaxe","bow","crossbow","shield","iron_helmet","iron_chestplate",
-      "iron_leggings","iron_boots","diamond_sword","diamond_pickaxe","enchanted_book","golden_apple"]
-def item(name,weight,maximum=1):
+# Balanced loot: themed materials, equipment, and rare treasures.
+# Explicit components are used because Snapshot 4 did not apply legacy
+# enchant_randomly/set_damage functions reliably in the previous test.
+import random
+THEMES={
+ "castle":(["bread","arrow","iron_ingot","leather","shield"],["iron_sword","iron_chestplate","crossbow"]),
+ "ship":(["paper","string","cod","gold_nugget","compass"],["bow","iron_sword","leather_boots"]),
+ "mine":(["coal","raw_iron","raw_copper","torch","flint"],["iron_pickaxe","iron_axe","iron_helmet"]),
+ "grave":(["bone","rotten_flesh","coal","gold_nugget","string"],["iron_sword","iron_helmet","bow"]),
+ "tower":(["arrow","bread","iron_nugget","string","torch"],["bow","crossbow","iron_boots"]),
+ "temple":(["bone","gold_nugget","lapis_lazuli","rotten_flesh","clay_ball"],["iron_sword","golden_helmet","bow"]),
+ "farm":(["wheat","bread","wheat_seeds","carrot","apple"],["iron_hoe","leather_boots","iron_axe"]),
+ "hut":(["bread","stick","leather","coal","mushroom_stew"],["stone_axe","leather_chestplate","iron_helmet"]),
+}
+GENERAL=["bread","coal","stick","torch","leather","string","bone","paper","arrow","flint","copper_ingot","potato","wheat","apple","iron_nugget","gold_nugget"]
+GEAR=["iron_sword","iron_pickaxe","iron_axe","bow","crossbow","iron_helmet","iron_chestplate","iron_boots","leather_chestplate"]
+MAX_DAMAGE={"iron_sword":250,"iron_pickaxe":250,"iron_axe":250,"iron_helmet":165,"iron_chestplate":240,"iron_leggings":225,"iron_boots":195,"bow":384,"crossbow":465,"shield":336,
+"diamond_sword":1561,"diamond_pickaxe":1561,"leather_chestplate":80,"leather_boots":65,"stone_axe":131,"iron_hoe":250,"golden_helmet":77}
+ENCHANTS={
+ "sword":[("sharpness",1,3),("unbreaking",1,2),("knockback",1,1)],
+ "pickaxe":[("efficiency",1,3),("unbreaking",1,2),("fortune",1,1)],
+ "axe":[("efficiency",1,3),("unbreaking",1,2)],
+ "bow":[("power",1,3),("unbreaking",1,2),("punch",1,1)],
+ "crossbow":[("quick_charge",1,2),("piercing",1,2)],
+ "armor":[("protection",1,3),("unbreaking",1,2)],
+ "book":[("efficiency",1,4),("sharpness",1,3),("protection",1,4),("unbreaking",1,3),("power",1,4),("fortune",1,2),("mending",1,1)]
+}
+def compatible_kind(item):
+ if item=="enchanted_book":return "book"
+ if "sword" in item:return "sword"
+ if "pickaxe" in item:return "pickaxe"
+ if "axe" in item:return "axe"
+ if item in ("bow","crossbow"):return item
+ return "armor"
+def item(name,weight=8,minimum=1,maximum=1,variant=0,enchanted=False,damaged=False):
  e={"type":"minecraft:item","name":"minecraft:"+name,"weight":weight}
  functions=[]
- if maximum>1:functions.append({"function":"minecraft:set_count","count":{"type":"minecraft:uniform","min":1,"max":maximum}})
- if name=="enchanted_book":functions.append({"function":"minecraft:enchant_randomly"})
- if name in gear and name not in ("enchanted_book","golden_apple"):
-  functions.append({"function":"minecraft:set_damage","damage":{"type":"minecraft:uniform","min":0.15,"max":0.9}})
+ if maximum>1:functions.append({"function":"minecraft:set_count","count":{"type":"minecraft:uniform","min":minimum,"max":maximum}})
+ components={}
+ if name in MAX_DAMAGE and damaged:
+  damage=int(MAX_DAMAGE[name]*(0.18+((variant*7)%48)/100))
+  components["minecraft:damage"]=max(1,damage)
+ if enchanted:
+  candidates=ENCHANTS[compatible_kind(name)]
+  enchant,lo,hi=candidates[variant%len(candidates)]
+  level=lo+(variant//3)%(hi-lo+1)
+  component="minecraft:stored_enchantments" if name=="enchanted_book" else "minecraft:enchantments"
+  components[component]={"minecraft:"+enchant:level}
+ if components:functions.append({"function":"minecraft:set_components","components":components})
  if functions:e["functions"]=functions
  return e
 def table(seed):
- # Stable hash supplies per-structure variation without nondeterministic builds.
- h=int(hashlib.sha256(seed.encode()).hexdigest()[:12],16)
- materials=[common[(h//(i+1)+i*7)%len(common)] for i in range(10)]
- equipment=[gear[(h//(i+3)+i*5)%len(gear)] for i in range(9)]
+ h=int(hashlib.sha256(seed.encode()).hexdigest()[:16],16)
+ rng=random.Random(h)
+ theme=next((v for k,v in THEMES.items() if k in seed),None)
+ supplies=list(theme[0]) if theme else rng.sample(GENERAL,7)
+ equipment=list(theme[1]) if theme else rng.sample(GEAR,3)
+ # Each structure has stable curated selections, but chest rolls are random.
+ supplies=list(dict.fromkeys(supplies+rng.sample(GENERAL,4)))
+ equip=list(dict.fromkeys(equipment+rng.sample(GEAR,2)))
+ pool1=[item(n,10 if n not in ("iron_ingot","gold_ingot") else 4,1,
+             2 if n in ("bread","apple","potato") else 5 if n in ("iron_ingot","gold_ingot") else 9,
+             i) for i,n in enumerate(supplies)]
+ pool2=[]
+ for i,n in enumerate(equip):
+  pool2.append(item(n,9,variant=h%97+i,damaged=(i%2==0)))
+  pool2.append(item(n,2,variant=h%101+i,enchanted=True,damaged=(i%3==0)))
+ pool2.append(item("enchanted_book",2,variant=h%17,enchanted=True))
+ pool3=[item("emerald",8,1,2),item("iron_ingot",9,1,3),item("gold_ingot",6,1,3),
+        item("diamond",2,1,1),item("golden_apple",1),item("experience_bottle",3,1,3)]
  return {"type":"minecraft:chest","pools":[
-  {"rolls":{"type":"minecraft:uniform","min":3,"max":7},
-   "entries":[item(v,12-i,2+(i%9)) for i,v in enumerate(materials)]},
-  {"rolls":{"type":"minecraft:uniform","min":2,"max":4},
-   "entries":[item(v,10-i) for i,v in enumerate(equipment)]},
-  {"rolls":{"type":"minecraft:uniform","min":1,"max":3},
-   "entries":[item("enchanted_book",4),item("diamond",3,3),item("emerald",9,6),
-              item("golden_apple",2),item("experience_bottle",8,7),
-              item("gold_ingot",12,8),item("iron_ingot",15,9)]}]}
+  {"rolls":{"type":"minecraft:uniform","min":1,"max":4},"entries":pool1},
+  {"rolls":{"type":"minecraft:uniform","min":0,"max":2},"entries":pool2},
+  {"rolls":{"type":"minecraft:uniform","min":0,"max":2},"entries":pool3}]}
 report=[]; altered=[]
 for path,blob in list(files.items()):
  if not (path.endswith(".nbt") and "/structure/" in path):continue
@@ -110,7 +157,16 @@ for path,blob in list(files.items()):
    files[path]=json.dumps(fixed,indent=2).encode()
    print("Modernized legacy loot distributions:",path)
 
-metadata={"schemaVersion":1,"id":"allstructuremods","version":"0.2.3",
+# Replace old source chest loot tables too; some upstream tables generated
+# entire double chests of one-piece precious metals. Leave non-chest tables intact.
+for path,blob in list(files.items()):
+ if "/loot_table/" not in path or not path.endswith(".json"):continue
+ obj=json.loads(blob)
+ if obj.get("type")=="minecraft:chest" and not path.startswith("data/allstructuremods/"):
+  files[path]=json.dumps(table(path),indent=2).encode()
+  print("Rebalanced inherited chest loot:",path)
+
+metadata={"schemaVersion":1,"id":"allstructuremods","version":"0.2.4",
 "name":"All Structure Mods (Bulk TEST)","environment":"*",
 "description":"Bulk structure integration preview. Generated loot only; original worldgen preserved.",
 "authors":["ConnersaysXD"],"depends":{"fabricloader":">=0.19.5","minecraft":"26.4-alpha.4","java":">=25"}}

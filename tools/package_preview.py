@@ -12,7 +12,7 @@ assert len([x for x in entries if x.startswith('data/allstructuremods/loot_table
 meta={"schemaVersion":1,"id":"allstructuremods","version":"0.1.0","name":"All Structure Mods (Thun Preview)","environment":"*",
 "description":"UNTESTED integration preview: original Thun structure generation and unique loot tables.",
 "authors":["ConnersaysXD"],"contact":{"sources":"https://github.com/killerconner425/AllStructureMods"},
-"depends":{"fabricloader":">=0.19.5","minecraft":"26.4-snapshot-4","java":">=25"}}
+"depends":{"fabricloader":">=0.19.5","minecraft":"26.4-alpha.4","java":">=25"}}
 entries["fabric.mod.json"]=json.dumps(meta,indent=2).encode()
 entries["META-INF/ASM-TEST-NOTICE.txt"]=b"UNTESTED 26.4 Snapshot 4 data registry and gameplay integration. Do not treat this as a released or fully verified mod.\n"
 entries["META-INF/THUNS-PROVENANCE.txt"]=b"Thun's Structures 1.3.4. Original upstream Modrinth project ZLL4Dkxb. Listed license: MIT. Only original container loot references changed and new structure loot tables added. Confirm original copyright and license text before public redistribution.\n"

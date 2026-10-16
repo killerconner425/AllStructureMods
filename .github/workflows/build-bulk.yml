@@ -1,0 +1,29 @@
+name: Build bulk structures TEST JAR
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tools/build_bulk.py'
+      - '.github/workflows/build-bulk.yml'
+      - 'tools/batch_import.py'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install nbtlib==2.0.4
+      - run: python tools/batch_import.py
+      - name: Package batch and structure-specific loot
+        run: |
+          test -s dist/bulk-stage.zip
+          python tools/build_bulk.py dist/bulk-stage.zip dist/AllStructureMods-0.2.0-BULK-TEST.jar
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: AllStructureMods-BULK-TEST
+          path: dist/

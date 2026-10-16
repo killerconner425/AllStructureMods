@@ -62,7 +62,27 @@ for path,blob in list(files.items()):
   files[tablepath]=json.dumps(table(key),indent=2).encode()
   altered.append(path)
  report.append({"structure":path,"containers":count,"loot_table":"allstructuremods:chests/"+key if count else None})
-metadata={"schemaVersion":1,"id":"allstructuremods","version":"0.2.0",
+# Snapshot 4 workaround: three CF processor lists fail registry parsing with append_loot.
+# Preserve predicates, output states and placement odds, changing only how loot is attached.
+for processor_file in (
+ "data/cf_structures/worldgen/processor_list/grog_archaeology.json",
+ "data/cf_structures/worldgen/processor_list/mill_loot.json",
+ "data/cf_structures/worldgen/processor_list/spawner_fix.json"
+):
+ if processor_file not in files:continue
+ document=json.loads(files[processor_file])
+ modified=0
+ for processor in document.get("processors",[]):
+  for rule in processor.get("rules",[]):
+   m=rule.get("block_entity_modifier",{})
+   if m.get("type")=="minecraft:append_loot":
+    rule["block_entity_modifier"]={"type":"minecraft:append_static","data":{"LootTable":m["loot_table"]}}
+    modified+=1
+ if modified:
+  files[processor_file]=json.dumps(document,indent=2).encode()
+  print("CF Snapshot 4 processor loot compatibility:",processor_file,modified)
+
+metadata={"schemaVersion":1,"id":"allstructuremods","version":"0.2.1",
 "name":"All Structure Mods (Bulk TEST)","environment":"*",
 "description":"Bulk structure integration preview. Generated loot only; original worldgen preserved.",
 "authors":["ConnersaysXD"],"depends":{"fabricloader":">=0.19.5","minecraft":"26.4-alpha.4","java":">=25"}}

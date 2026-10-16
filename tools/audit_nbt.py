@@ -18,7 +18,7 @@ results=[]; errors=[]
 for name in sorted(x for x in archive.namelist() if x.endswith(".nbt") and "/structure/" in x):
   try:
     raw_nbt=archive.read(name)
-    if raw_nbt.startswith(b"\\x1f\\x8b"):
+    if raw_nbt.startswith(bytes((31, 139))):
       raw_nbt=gzip.decompress(raw_nbt)
     root=nbtlib.File.parse(io.BytesIO(raw_nbt))
     palette=root.get("palette",[])
@@ -32,7 +32,7 @@ for name in sorted(x for x in archive.namelist() if x.endswith(".nbt") and "/str
       if loot is not None:
         containers.append({"pos":[int(x) for x in block["pos"]],"loot_table":str(loot)})
     results.append({"file":name,"palette_size":len(blocks),"non_vanilla_blocks":nonvanilla,"loot_containers":containers})
-  except Exception as ex:errors.append({"file":name,"error":str(ex)})
+  except Exception as ex:errors.append({"file":name,"error":repr(ex),"first_bytes_hex":archive.read(name)[:16].hex()})
 report={"upstream_version_id":V_ID,"source_sha512":hashlib.sha512(blob).hexdigest(),
 "structure_count":len(results),"structures":results,"errors":errors,
 "status":"NBTS and loot pointer inventory only; Snapshot 4 generation compatibility not yet tested"}

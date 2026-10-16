@@ -1,0 +1,37 @@
+name: Generate distinct structure loot tables
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tools/customize_loot.py'
+      - '.github/workflows/generate-loot.yml'
+permissions:
+  contents: read
+jobs:
+  generate-loot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install nbtlib==2.0.4
+      - name: Fetch pinned original release
+        run: |
+          python - <<'PY'
+          import urllib.request,json,hashlib,pathlib
+          v=json.load(urllib.request.urlopen('https://api.modrinth.com/v2/version/23Gin9af'))
+          assert v['project_id']=='ZLL4Dkxb'
+          f=next((x for x in v['files'] if x.get('primary')),v['files'][0])
+          blob=urllib.request.urlopen(f['url']).read()
+          assert hashlib.sha512(blob).hexdigest()==f['hashes']['sha512']
+          pathlib.Path('source.zip').write_bytes(blob)
+          PY
+      - name: Replace loot references only
+        run: python tools/customize_loot.py source.zip dist/thuns-with-custom-loot.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: thuns-loot-integrated-source
+          path: |
+            dist/thuns-with-custom-loot.zip
+            dist/thuns-with-custom-loot.report.json

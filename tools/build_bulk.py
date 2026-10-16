@@ -78,11 +78,21 @@ for processor_file in (
    if m.get("type")=="minecraft:append_loot":
     rule["block_entity_modifier"]={"type":"minecraft:append_static","data":{"LootTable":m["loot_table"]}}
     modified+=1
+ # 26.4 uses block-state codec id instead of legacy NBT Name in processor rules.
+ for processor in document.get("processors",[]):
+  for rule in processor.get("rules",[]):
+   state=rule.get("output_state")
+   if isinstance(state,dict) and "Name" in state:
+    modern={"id":state.pop("Name")}
+    if "Properties" in state:modern["properties"]=state.pop("Properties")
+    modern.update(state)
+    rule["output_state"]=modern
+    modified+=1
  if modified:
   files[processor_file]=json.dumps(document,indent=2).encode()
   print("CF Snapshot 4 processor loot compatibility:",processor_file,modified)
 
-metadata={"schemaVersion":1,"id":"allstructuremods","version":"0.2.1",
+metadata={"schemaVersion":1,"id":"allstructuremods","version":"0.2.2",
 "name":"All Structure Mods (Bulk TEST)","environment":"*",
 "description":"Bulk structure integration preview. Generated loot only; original worldgen preserved.",
 "authors":["ConnersaysXD"],"depends":{"fabricloader":">=0.19.5","minecraft":"26.4-alpha.4","java":">=25"}}

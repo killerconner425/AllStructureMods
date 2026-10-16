@@ -92,7 +92,25 @@ for processor_file in (
   files[processor_file]=json.dumps(document,indent=2).encode()
   print("CF Snapshot 4 processor loot compatibility:",processor_file,modified)
 
-metadata={"schemaVersion":1,"id":"allstructuremods","version":"0.2.2",
+# Convert old random-number syntax in ALL bundled loot tables, not only
+# those mentioned in a crash report. Modern codec requires explicit type.
+def update_loot_providers(node,field=None):
+ if isinstance(node,list):
+  return [update_loot_providers(v) for v in node]
+ if not isinstance(node,dict):return node
+ result={k:update_loot_providers(v,k) for k,v in node.items()}
+ if field in ("rolls","count","damage") and "min" in result and "max" in result and "type" not in result:
+  return {"type":"minecraft:uniform",**result}
+ return result
+for path,blob in list(files.items()):
+ if "/loot_table/" in path and path.endswith(".json"):
+  obj=json.loads(blob)
+  fixed=update_loot_providers(obj)
+  if fixed!=obj:
+   files[path]=json.dumps(fixed,indent=2).encode()
+   print("Modernized legacy loot distributions:",path)
+
+metadata={"schemaVersion":1,"id":"allstructuremods","version":"0.2.3",
 "name":"All Structure Mods (Bulk TEST)","environment":"*",
 "description":"Bulk structure integration preview. Generated loot only; original worldgen preserved.",
 "authors":["ConnersaysXD"],"depends":{"fabricloader":">=0.19.5","minecraft":"26.4-alpha.4","java":">=25"}}
